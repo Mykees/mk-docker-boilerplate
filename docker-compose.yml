@@ -1,0 +1,88 @@
+version: "3.8"
+services:
+    # PHP service
+    app:
+        build: ./docker/php/.
+        container_name: app-php
+        working_dir: /var/www/
+        volumes:
+            - ./:/var/www/
+        environment:
+            - MESSENGER_TRANSPORT_DSN=amqp://guest:guest@appmq:5672/%2f/messages
+        networks:
+            - app-network
+
+    # Nginx service
+    nginx:
+        image: nginx:alpine
+        container_name: app-nginx
+        working_dir: /var/www/
+        ports:
+            - 8001:80
+        volumes:
+            - ./:/var/www/
+            - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+        networks:
+            - app-network
+
+    # Mysql service
+    mysql:
+        image: mysql:8.0
+        platform: linux/x86_64
+        container_name: app-mysql
+        command: --default-authentication-plugin=mysql_native_password
+        restart: always
+        environment:
+            - MYSQL_DATABASE=mydb
+            - MYSQL_ROOT_PASSWORD=root
+            - MYSQL_USER=app
+            - MYSQL_PASSWORD=apppass
+        volumes:
+            - ./docker/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+            - ./docker/mysql/data:/var/lib/mysql
+        ports:
+            - 8982:3306
+        networks:
+            - app-network
+
+
+    phpmyadmin:
+        image: phpmyadmin
+        container_name: app-pma
+        restart: always
+        depends_on:
+            - mysql
+        ports:
+            - 8085:80
+        environment:
+            PMA_HOST: mysql
+        networks:
+            - app-network
+
+
+    maildev:
+        image: maildev/maildev
+        container_name: app-maildev
+        command: bin/maildev --web 80 --smtp 25 --hide-extensions STARTTLS
+        ports:
+            - "8081:80"
+        restart: always
+        networks:
+            - app-network
+
+
+    rabbitmq: # The RabbitMQ container.
+        container_name: app-rabbitmq
+        build:
+            context: .
+            dockerfile: ./docker/rabbitmq/Dockerfile-rabbitmq
+        volumes:
+            - ./docker/rabbitmq/data:/var/lib/rabbitmq:cached
+        networks:
+            - app-network
+        ports:
+            - 15672:15672
+
+networks:
+    app-network:
+        driver: bridge
