@@ -8,12 +8,12 @@
 - Maildev
 - RabbitMQ
 
-###Start:
+### Start:
 ```
 docker-compose up -d
 ```
 
-###Entering in a running container:
+### Entering in a running container:
 ```
 docker exec -it app-php bash
 ```
